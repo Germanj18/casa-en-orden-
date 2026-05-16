@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
-import { mockEventos, mockIntegrantes } from '../../data/mockData';
+import { useAppStore } from '../../store';
 
 
 type Vista = 'mes' | 'dia';
@@ -38,8 +38,9 @@ function generarDiasMes(anio: number, mes: number) {
   return dias;
 }
 
-function EventoCard({ evento }: { evento: typeof mockEventos[0] }) {
-  const integrante = mockIntegrantes.find(i => i.id === evento.integrante);
+function EventoCard({ evento }: { evento: ReturnType<typeof useAppStore.getState>['eventos'][0] }) {
+  const integrantes = useAppStore(s => s.integrantes);
+  const integrante = integrantes.find(i => i.id === evento.integrante);
   const bg = categoriaColores[evento.categoria] ?? '#FAFAFA';
 
   return (
@@ -71,26 +72,47 @@ function EventoCard({ evento }: { evento: typeof mockEventos[0] }) {
 }
 
 export default function AgendaScreen() {
+  const eventos = useAppStore(s => s.eventos);
+  const integrantes = useAppStore(s => s.integrantes);
+  const agregarEvento = useAppStore(s => s.agregarEvento);
+
   const [vista, setVista] = useState<Vista>('mes');
   const [modalVisible, setModalVisible] = useState(false);
   const [diaSeleccionado, setDiaSeleccionado] = useState(18);
 
-  const hoy = new Date();
+  // Form state
+  const [nuevoTitulo, setNuevoTitulo] = useState('');
+  const [nuevoIntegrante, setNuevoIntegrante] = useState(integrantes[0]?.id ?? '1');
+  const [nuevaCategoria, setNuevaCategoria] = useState('');
+
   const anio = 2026;
-  const mes = 4; // mayo (0-indexed)
+  const mes = 4;
   const dias = generarDiasMes(anio, mes);
-  // Dividir en filas de 7 para un grid perfecto sin flexWrap
   const semanas: (number | null)[][] = [];
   for (let i = 0; i < dias.length; i += 7) {
     semanas.push(dias.slice(i, i + 7));
   }
 
-  // Parseo manual para evitar bug de timezone (new Date('YYYY-MM-DD') = UTC midnight)
   const getDia = (fecha: string) => parseInt(fecha.split('-')[2], 10);
+  const eventosDelDia = eventos.filter(e => getDia(e.fecha) === diaSeleccionado);
+  const diasConEventos = new Set(eventos.map(e => getDia(e.fecha)));
 
-  const eventosDelDia = mockEventos.filter(e => getDia(e.fecha) === diaSeleccionado);
-
-  const diasConEventos = new Set(mockEventos.map(e => getDia(e.fecha)));
+  function handleGuardarEvento() {
+    if (!nuevoTitulo.trim() || !nuevaCategoria) return;
+    const mes2 = String(mes + 1).padStart(2, '0');
+    const dia2 = String(diaSeleccionado).padStart(2, '0');
+    agregarEvento({
+      titulo: nuevoTitulo.trim(),
+      fecha: `${anio}-${mes2}-${dia2}`,
+      hora: null,
+      integrante: nuevoIntegrante,
+      categoria: nuevaCategoria,
+      icono: categoriaColores[nuevaCategoria] ? '📅' : '📅',
+    });
+    setNuevoTitulo('');
+    setNuevaCategoria('');
+    setModalVisible(false);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -132,7 +154,7 @@ export default function AgendaScreen() {
           <TouchableOpacity style={[styles.integranteBtn, styles.integranteBtnActive]}>
             <Text style={styles.integranteBtnText}>Todos</Text>
           </TouchableOpacity>
-          {mockIntegrantes.map(i => (
+          {integrantes.map(i => (
             <TouchableOpacity key={i.id} style={styles.integranteBtn}>
               <Text>{i.avatar}</Text>
               <Text style={styles.integranteBtnLabel}>{i.nombre}</Text>
@@ -223,19 +245,23 @@ export default function AgendaScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Agregar evento</Text>
+            <Text style={styles.modalTitle}>
+              Agregar evento — {diaSeleccionado} de {mesesNombres[mes]}
+            </Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Título</Text>
               <TextInput
                 style={styles.formInput}
                 placeholder="Ej: Turno médico de Sofía"
                 placeholderTextColor={colors.textMuted}
+                value={nuevoTitulo}
+                onChangeText={setNuevoTitulo}
                 autoFocus
               />
             </View>
@@ -245,7 +271,15 @@ export default function AgendaScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.categoriasRow}>
                   {Object.keys(categoriaColores).map(cat => (
-                    <TouchableOpacity key={cat} style={[styles.categoriaChip, { backgroundColor: categoriaColores[cat] }]}>
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.categoriaChip,
+                        { backgroundColor: categoriaColores[cat] },
+                        nuevaCategoria === cat && styles.categoriaChipSelected,
+                      ]}
+                      onPress={() => setNuevaCategoria(cat)}
+                    >
                       <Text style={styles.categoriaChipText}>{cat}</Text>
                     </TouchableOpacity>
                   ))}
@@ -253,71 +287,17 @@ export default function AgendaScreen() {
               </ScrollView>
             </View>
 
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.formLabel}>Fecha</Text>
-                <TouchableOpacity style={styles.formSelector}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.formSelectorText}>Lunes 18/05</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.formLabel}>Hora</Text>
-                <TouchableOpacity style={styles.formSelector}>
-                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.formSelectorText}>09:00</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Asignar a</Text>
               <View style={styles.integrantesChips}>
-                {mockIntegrantes.map(i => (
-                  <TouchableOpacity key={i.id} style={styles.integranteChipModal}>
+                {integrantes.map(i => (
+                  <TouchableOpacity
+                    key={i.id}
+                    style={[styles.integranteChipModal, nuevoIntegrante === i.id && styles.integranteChipModalSelected]}
+                    onPress={() => setNuevoIntegrante(i.id)}
+                  >
                     <Text>{i.avatar}</Text>
                     <Text style={styles.integranteChipLabel}>{i.nombre}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Lugar (opcional)</Text>
-              <TextInput style={styles.formInput} placeholder="Ej: Hospital Italiano" placeholderTextColor={colors.textMuted} />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Notas (opcional)</Text>
-              <TextInput
-                style={[styles.formInput, { height: 80, textAlignVertical: 'top' }]}
-                placeholder="Agregar notas..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Recordatorio</Text>
-              <TouchableOpacity style={styles.formSelector}>
-                <Ionicons name="notifications-outline" size={16} color={colors.textSecondary} />
-                <Text style={[styles.formSelectorText, { flex: 1 }]}>1 hora antes</Text>
-                <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.conectarBox}>
-              <Text style={styles.conectarTitle}>Conectar con</Text>
-              <View style={styles.conectarRow}>
-                {[
-                  { icono: '💸', label: 'Gasto' },
-                  { icono: '⏰', label: 'Vencimiento' },
-                  { icono: '🔧', label: 'Arreglo' },
-                  { icono: '📎', label: 'Documento' },
-                ].map(c => (
-                  <TouchableOpacity key={c.label} style={styles.conectarBtn}>
-                    <Text style={styles.conectarBtnIco}>{c.icono}</Text>
-                    <Text style={styles.conectarBtnLabel}>{c.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -325,7 +305,10 @@ export default function AgendaScreen() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.saveBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={[styles.saveBtn, (!nuevoTitulo.trim() || !nuevaCategoria) && styles.saveBtnDisabled]}
+              onPress={handleGuardarEvento}
+            >
               <Text style={styles.saveBtnText}>Guardar evento</Text>
             </TouchableOpacity>
           </View>
@@ -537,6 +520,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
   },
+  categoriaChipSelected: { borderWidth: 2, borderColor: colors.primary },
   categoriaChipText: { ...typography.bodySmall, color: colors.text, fontWeight: '500' },
   integrantesChips: { flexDirection: 'row', gap: spacing.sm },
   integranteChipModal: {
@@ -550,7 +534,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
   },
+  integranteChipModalSelected: { borderColor: colors.primary, backgroundColor: colors.successLight },
   integranteChipLabel: { ...typography.bodySmall, color: colors.text, fontWeight: '500' },
+  saveBtnDisabled: { backgroundColor: colors.border },
   conectarBox: {
     backgroundColor: colors.surfaceSecondary,
     borderRadius: radius.md,

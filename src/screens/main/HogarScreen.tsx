@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
-import { mockHogar, mockIntegrantes, mockResumenMes } from '../../data/mockData';
+import { useAppStore } from '../../store';
 
 function formatMonto(n: number) {
   return '$' + n.toLocaleString('es-AR');
@@ -20,6 +20,9 @@ const seccionesHogar = [
 ];
 
 export default function HogarScreen() {
+  const hogar = useAppStore(s => s.hogar);
+  const integrantes = useAppStore(s => s.integrantes);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -37,8 +40,8 @@ export default function HogarScreen() {
           <View style={styles.hogarCardLeft}>
             <Text style={styles.hogarEmoji}>🏠</Text>
             <View>
-              <Text style={styles.hogarNombre}>{mockHogar.nombre}</Text>
-              <Text style={styles.hogarTipo}>{mockHogar.tipo} · {mockHogar.moneda}</Text>
+              <Text style={styles.hogarNombre}>{hogar.nombre}</Text>
+              <Text style={styles.hogarTipo}>{hogar.tipo} · {hogar.moneda}</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.editBtn}>
@@ -55,7 +58,7 @@ export default function HogarScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.integrantesRow}>
-            {mockIntegrantes.map(i => (
+            {integrantes.map(i => (
               <TouchableOpacity key={i.id} style={styles.integranteCard} activeOpacity={0.8}>
                 <View style={[styles.avatarBg, { backgroundColor: i.color + '25' }]}>
                   <Text style={styles.avatarEmoji}>{i.avatar}</Text>

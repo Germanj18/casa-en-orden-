@@ -6,10 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
-import {
-  mockResumenMes, mockVencimientos, mockEventos,
-  mockAlertas, mockHogar,
-} from '../../data/mockData';
+import { mockAlertas } from '../../data/mockData';
+import { useAppStore, selectResumenMes } from '../../store';
 
 function formatMonto(n: number) {
   return '$' + n.toLocaleString('es-AR');
@@ -56,7 +54,7 @@ function VencimientoRow({ v }: { v: typeof mockVencimientos[0] }) {
   );
 }
 
-function EventoRow({ e }: { e: typeof mockEventos[0] }) {
+function EventoRow({ e }: { e: { titulo: string; hora?: string | null; icono: string } }) {
   return (
     <View style={styles.eventoRow}>
       <Text style={styles.eventoIcono}>{e.icono}</Text>
@@ -69,12 +67,15 @@ function EventoRow({ e }: { e: typeof mockEventos[0] }) {
 }
 
 export default function InicioScreen() {
-  const { costoEstimado, pagado, pendiente, libreEstimado, ingresoTotal } = mockResumenMes;
-  const progresoPorc = Math.round((pagado / costoEstimado) * 100);
+  const hogar = useAppStore(s => s.hogar);
+  const vencimientos = useAppStore(s => s.vencimientos);
+  const eventos = useAppStore(s => s.eventos);
+  const { costoEstimado, pagado, pendiente, libreEstimado } = useAppStore(selectResumenMes);
+  const progresoPorc = costoEstimado > 0 ? Math.round((pagado / costoEstimado) * 100) : 0;
   const hoy = new Date();
   const diasRestantesMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate() - hoy.getDate();
-  const eventosHoy = mockEventos.filter(e => e.fecha === '2026-05-18');
-  const proximosVencimientos = mockVencimientos.filter(v => ['urgente', 'vencido', 'proximo'].includes(v.estado));
+  const eventosHoy = eventos.filter(e => e.fecha === '2026-05-18');
+  const proximosVencimientos = vencimientos.filter(v => ['urgente', 'vencido', 'proximo'].includes(v.estado));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,7 +85,7 @@ export default function InicioScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerSaludo}>Hola, German 👋</Text>
-          <Text style={styles.headerHogar}>{mockHogar.nombre}</Text>
+          <Text style={styles.headerHogar}>{hogar.nombre}</Text>
         </View>
         <TouchableOpacity style={styles.notifBtn}>
           <Ionicons name="notifications-outline" size={24} color="#FFF" />

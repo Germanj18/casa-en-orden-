@@ -6,9 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
-import { mockGastos, mockResumenMes, mockIntegrantes } from '../../data/mockData';
-
-type Gasto = typeof mockGastos[0];
+import { useAppStore, selectResumenMes, type Gasto } from '../../store';
 
 const categoriaIconos: Record<string, string> = {
   Alquiler: '🏠', Expensas: '🏢', Luz: '💡', Gas: '🔥', Agua: '💧',
@@ -21,13 +19,18 @@ function formatMonto(n: number) {
   return '$' + n.toLocaleString('es-AR');
 }
 
-function GastoCard({ gasto }: { gasto: Gasto }) {
+function GastoCard({ gasto, onMarcarPagado }: { gasto: Gasto; onMarcarPagado: (id: string) => void }) {
+  const integrantes = useAppStore(s => s.integrantes);
   const icono = categoriaIconos[gasto.categoria] ?? '💰';
   const isPagado = gasto.estado === 'pagado';
-  const responsable = mockIntegrantes.find(i => i.id === gasto.responsable);
+  const responsable = integrantes.find(i => i.id === gasto.responsable);
 
   return (
-    <TouchableOpacity style={styles.gastoCard} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.gastoCard}
+      activeOpacity={0.8}
+      onLongPress={() => !isPagado && onMarcarPagado(gasto.id)}
+    >
       <View style={[styles.gastoIconoBg, { backgroundColor: isPagado ? colors.successLight : colors.warningLight }]}>
         <Text style={styles.gastoIcono}>{icono}</Text>
       </View>
@@ -54,27 +57,68 @@ function GastoCard({ gasto }: { gasto: Gasto }) {
         <Text style={[styles.gastoMonto, { color: isPagado ? colors.text : colors.danger }]}>
           {formatMonto(gasto.monto)}
         </Text>
-        <View style={[styles.estadoBadge, { backgroundColor: isPagado ? colors.successLight : '#FFF3E0' }]}>
+        <TouchableOpacity
+          style={[styles.estadoBadge, { backgroundColor: isPagado ? colors.successLight : '#FFF3E0' }]}
+          onPress={() => !isPagado && onMarcarPagado(gasto.id)}
+        >
           <Text style={[styles.estadoText, { color: isPagado ? colors.primaryDark : '#7D4200' }]}>
             {isPagado ? 'Pagado' : 'Pendiente'}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 }
 
+const CATEGORIAS = Object.entries(categoriaIconos);
+
 export default function GastosScreen() {
+  const gastos = useAppStore(s => s.gastos);
+  const integrantes = useAppStore(s => s.integrantes);
+  const agregarGasto = useAppStore(s => s.agregarGasto);
+  const marcarGastoPagado = useAppStore(s => s.marcarGastoPagado);
+  const resumen = useAppStore(selectResumenMes);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [filtro, setFiltro] = useState<'todos' | 'pagados' | 'pendientes'>('todos');
 
-  const gastosFiltrados = mockGastos.filter(g => {
+  // Form state
+  const [nombre, setNombre] = useState('');
+  const [monto, setMonto] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [responsableId, setResponsableId] = useState(integrantes[0]?.id ?? '1');
+
+  const gastosFiltrados = gastos.filter(g => {
     if (filtro === 'pagados') return g.estado === 'pagado';
     if (filtro === 'pendientes') return g.estado === 'pendiente';
     return true;
   });
 
-  const totalPendiente = mockGastos.filter(g => g.estado === 'pendiente').reduce((s, g) => s + g.monto, 0);
+  const canSave = nombre.trim().length > 0 && monto.length > 0 && categoria !== '';
+
+  function handleGuardar() {
+    if (!canSave) return;
+    agregarGasto({
+      nombre: nombre.trim(),
+      categoria,
+      monto: parseInt(monto.replace(/\D/g, ''), 10),
+      vencimiento: null,
+      estado: 'pendiente',
+      responsable: responsableId,
+      recurrente: false,
+    });
+    setNombre('');
+    setMonto('');
+    setCategoria('');
+    setModalVisible(false);
+  }
+
+  function handleCerrar() {
+    setNombre('');
+    setMonto('');
+    setCategoria('');
+    setModalVisible(false);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -95,13 +139,13 @@ export default function GastosScreen() {
         <View style={[styles.resumenCard, { backgroundColor: colors.successLight }]}>
           <Text style={styles.resumenLabel}>Pagado</Text>
           <Text style={[styles.resumenMonto, { color: colors.primaryDark }]}>
-            {formatMonto(mockResumenMes.pagado)}
+            {formatMonto(resumen.pagado)}
           </Text>
         </View>
         <View style={[styles.resumenCard, { backgroundColor: colors.dangerLight }]}>
           <Text style={styles.resumenLabel}>Pendiente</Text>
           <Text style={[styles.resumenMonto, { color: colors.danger }]}>
-            {formatMonto(totalPendiente)}
+            {formatMonto(resumen.pendiente)}
           </Text>
         </View>
       </View>
@@ -122,9 +166,19 @@ export default function GastosScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.lista} showsVerticalScrollIndicator={false}>
-        {gastosFiltrados.map(g => (
-          <GastoCard key={g.id} gasto={g} />
-        ))}
+        {gastosFiltrados.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>💸</Text>
+            <Text style={styles.emptyText}>No hay gastos {filtro !== 'todos' ? filtro : ''}</Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={() => setModalVisible(true)}>
+              <Text style={styles.emptyBtnText}>Agregar gasto</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          gastosFiltrados.map(g => (
+            <GastoCard key={g.id} gasto={g} onMarcarPagado={marcarGastoPagado} />
+          ))
+        )}
         <View style={{ height: spacing.xxl }} />
       </ScrollView>
 
@@ -133,79 +187,79 @@ export default function GastosScreen() {
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Agregar gasto</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
+            <TouchableOpacity onPress={handleCerrar}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Nombre del gasto</Text>
-              <TextInput style={styles.formInput} placeholder="Ej: Alquiler mayo" placeholderTextColor={colors.textMuted} />
+              <TextInput
+                style={styles.formInput}
+                placeholder="Ej: Alquiler mayo"
+                placeholderTextColor={colors.textMuted}
+                value={nombre}
+                onChangeText={setNombre}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Monto</Text>
+              <TextInput
+                style={[styles.formInput, styles.montoInput]}
+                placeholder="$ 0"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                value={monto}
+                onChangeText={setMonto}
+              />
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Categoría</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriasScroll}>
-                {Object.entries(categoriaIconos).map(([cat, ico]) => (
-                  <TouchableOpacity key={cat} style={styles.categoriaChip}>
+                {CATEGORIAS.map(([cat, ico]) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoriaChip, categoria === cat && styles.categoriaChipSelected]}
+                    onPress={() => setCategoria(cat)}
+                  >
                     <Text style={styles.categoriaIco}>{ico}</Text>
-                    <Text style={styles.categoriaLabel}>{cat}</Text>
+                    <Text style={[styles.categoriaLabel, categoria === cat && styles.categoriaLabelSelected]}>
+                      {cat}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Monto</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="$ 0"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.formRow}>
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.formLabel}>Vencimiento</Text>
-                <TouchableOpacity style={styles.formSelector}>
-                  <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.formSelectorText}>Seleccionar fecha</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.formGroup, { flex: 1 }]}>
-                <Text style={styles.formLabel}>Recurrencia</Text>
-                <TouchableOpacity style={styles.formSelector}>
-                  <Ionicons name="repeat" size={16} color={colors.textSecondary} />
-                  <Text style={styles.formSelectorText}>Mensual</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Responsable</Text>
               <View style={styles.integrantesRow}>
-                {mockIntegrantes.map(i => (
-                  <TouchableOpacity key={i.id} style={styles.integranteChip}>
+                {integrantes.map(i => (
+                  <TouchableOpacity
+                    key={i.id}
+                    style={[styles.integranteChip, responsableId === i.id && styles.integranteChipSelected]}
+                    onPress={() => setResponsableId(i.id)}
+                  >
                     <Text>{i.avatar}</Text>
-                    <Text style={styles.integranteChipLabel}>{i.nombre}</Text>
+                    <Text style={[styles.integranteChipLabel, responsableId === i.id && styles.integranteChipLabelSelected]}>
+                      {i.nombre}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Comprobante (opcional)</Text>
-              <TouchableOpacity style={styles.uploadBtn}>
-                <Ionicons name="camera-outline" size={20} color={colors.primaryLight} />
-                <Text style={styles.uploadText}>Adjuntar foto o PDF</Text>
-              </TouchableOpacity>
-            </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.saveBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
+              onPress={handleGuardar}
+              activeOpacity={canSave ? 0.85 : 1}
+            >
               <Text style={styles.saveBtnText}>Guardar gasto</Text>
             </TouchableOpacity>
           </View>
@@ -286,6 +340,16 @@ const styles = StyleSheet.create({
   gastoMonto: { fontSize: 15, fontWeight: '700' },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full },
   estadoText: { fontSize: 10, fontWeight: '700' },
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: spacing.md },
+  emptyEmoji: { fontSize: 40 },
+  emptyText: { ...typography.body, color: colors.textSecondary },
+  emptyBtn: {
+    backgroundColor: colors.successLight,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+  },
+  emptyBtnText: { ...typography.body, color: colors.primaryDark, fontWeight: '600' },
 
   // Modal
   modal: { flex: 1, backgroundColor: colors.background },
@@ -298,7 +362,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: { ...typography.h3, color: colors.text },
-  modalContent: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
+  modalContent: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   formGroup: { gap: spacing.xs },
   formLabel: { ...typography.label, color: colors.textSecondary },
   formInput: {
@@ -311,24 +375,12 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
   },
-  formRow: { flexDirection: 'row', gap: spacing.sm },
-  formSelector: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  formSelectorText: { ...typography.bodySmall, color: colors.textSecondary },
+  montoInput: { fontSize: 22, fontWeight: '700' },
   categoriasScroll: { marginTop: spacing.xs },
   categoriaChip: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -336,8 +388,10 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     minWidth: 72,
   },
+  categoriaChipSelected: { borderColor: colors.primary, backgroundColor: colors.successLight },
   categoriaIco: { fontSize: 20, marginBottom: 4 },
   categoriaLabel: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
+  categoriaLabelSelected: { color: colors.primaryDark, fontWeight: '600' },
   integrantesRow: { flexDirection: 'row', gap: spacing.sm },
   integranteChip: {
     flexDirection: 'row',
@@ -350,20 +404,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
   },
+  integranteChipSelected: { borderColor: colors.primary, backgroundColor: colors.successLight },
   integranteChipLabel: { ...typography.bodySmall, color: colors.text, fontWeight: '500' },
-  uploadBtn: {
-    backgroundColor: colors.successLight,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: colors.primaryLight,
-    borderStyle: 'dashed',
-  },
-  uploadText: { ...typography.body, color: colors.primaryLight, fontWeight: '500' },
+  integranteChipLabelSelected: { color: colors.primaryDark },
   modalFooter: { padding: spacing.lg, paddingBottom: spacing.xl },
   saveBtn: {
     backgroundColor: colors.primary,
@@ -371,5 +414,6 @@ const styles = StyleSheet.create({
     paddingVertical: 17,
     alignItems: 'center',
   },
+  saveBtnDisabled: { backgroundColor: colors.border },
   saveBtnText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
 });
