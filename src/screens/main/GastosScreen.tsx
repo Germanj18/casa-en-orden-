@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, selectResumenMes, type Gasto } from '../../store';
 
 const categoriaIconos: Record<string, string> = {
@@ -77,7 +78,7 @@ export default function GastosScreen() {
   const integrantes = useAppStore(s => s.integrantes);
   const agregarGasto = useAppStore(s => s.agregarGasto);
   const marcarGastoPagado = useAppStore(s => s.marcarGastoPagado);
-  const resumen = useAppStore(selectResumenMes);
+  const resumen = useAppStore(useShallow(selectResumenMes));
 
   const [modalVisible, setModalVisible] = useState(false);
   const [filtro, setFiltro] = useState<'todos' | 'pagados' | 'pendientes'>('todos');

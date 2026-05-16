@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
 import { mockAlertas } from '../../data/mockData';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, selectResumenMes } from '../../store';
 
 function formatMonto(n: number) {
@@ -70,7 +71,7 @@ export default function InicioScreen() {
   const hogar = useAppStore(s => s.hogar);
   const vencimientos = useAppStore(s => s.vencimientos);
   const eventos = useAppStore(s => s.eventos);
-  const { costoEstimado, pagado, pendiente, libreEstimado } = useAppStore(selectResumenMes);
+  const { costoEstimado, pagado, pendiente, libreEstimado } = useAppStore(useShallow(selectResumenMes));
   const progresoPorc = costoEstimado > 0 ? Math.round((pagado / costoEstimado) * 100) : 0;
   const hoy = new Date();
   const diasRestantesMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate() - hoy.getDate();
