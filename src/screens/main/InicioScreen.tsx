@@ -5,10 +5,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
 import { mockAlertas } from '../../data/mockData';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore, selectResumenMes } from '../../store';
+import { MainTabParams } from '../../navigation';
 
 function formatMonto(n: number) {
   return '$' + n.toLocaleString('es-AR');
@@ -68,6 +71,7 @@ function EventoRow({ e }: { e: { titulo: string; hora?: string | null; icono: st
 }
 
 export default function InicioScreen() {
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParams>>();
   const hogar = useAppStore(s => s.hogar);
   const vencimientos = useAppStore(s => s.vencimientos);
   const eventos = useAppStore(s => s.eventos);
@@ -154,7 +158,7 @@ export default function InicioScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Próximos vencimientos</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Gastos')}>
               <Text style={styles.sectionLink}>Ver todos</Text>
             </TouchableOpacity>
           </View>
@@ -173,7 +177,7 @@ export default function InicioScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Hoy en la agenda</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('Agenda')}>
                 <Text style={styles.sectionLink}>Ver agenda</Text>
               </TouchableOpacity>
             </View>
@@ -193,12 +197,12 @@ export default function InicioScreen() {
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>
           <View style={styles.accionesGrid}>
             {[
-              { icono: '💸', label: 'Cargar gasto', color: colors.successLight },
-              { icono: '📅', label: 'Agregar evento', color: colors.warningLight },
-              { icono: '📎', label: 'Subir comprobante', color: '#E8F4FD' },
-              { icono: '🔧', label: 'Registrar arreglo', color: '#F3E5F5' },
+              { icono: '💸', label: 'Cargar gasto', color: colors.successLight, tab: 'Gastos' as const },
+              { icono: '📅', label: 'Agregar evento', color: colors.warningLight, tab: 'Agenda' as const },
+              { icono: '📎', label: 'Subir comprobante', color: '#E8F4FD', tab: 'Comprobantes' as const },
+              { icono: '🏠', label: 'Mi hogar', color: '#F3E5F5', tab: 'Hogar' as const },
             ].map((a, i) => (
-              <TouchableOpacity key={i} style={[styles.accionCard, { backgroundColor: a.color }]} activeOpacity={0.8}>
+              <TouchableOpacity key={i} style={[styles.accionCard, { backgroundColor: a.color }]} activeOpacity={0.8} onPress={() => navigation.navigate(a.tab)}>
                 <Text style={styles.accionIcono}>{a.icono}</Text>
                 <Text style={styles.accionLabel}>{a.label}</Text>
               </TouchableOpacity>

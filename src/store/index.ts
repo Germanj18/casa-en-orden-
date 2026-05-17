@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mockGastos, mockEventos, mockVencimientos, mockIntegrantes, mockHogar } from '../data/mockData';
 
 export type Gasto = {
@@ -66,57 +68,67 @@ type AppState = {
   agregarIntegrante: (integrante: Omit<Integrante, 'id'>) => void;
 };
 
-export const useAppStore = create<AppState>((set) => ({
-  hogar: mockHogar,
-  integrantes: mockIntegrantes,
-  gastos: mockGastos as Gasto[],
-  eventos: mockEventos as Evento[],
-  vencimientos: mockVencimientos as Vencimiento[],
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      hogar: mockHogar,
+      integrantes: mockIntegrantes,
+      gastos: mockGastos as Gasto[],
+      eventos: mockEventos as Evento[],
+      vencimientos: mockVencimientos as Vencimiento[],
 
-  agregarGasto: (gasto) =>
-    set((state) => ({
-      gastos: [
-        { ...gasto, id: Date.now().toString() },
-        ...state.gastos,
-      ],
-    })),
+      agregarGasto: (gasto) =>
+        set((state) => ({
+          gastos: [{ ...gasto, id: Date.now().toString() }, ...state.gastos],
+        })),
 
-  marcarGastoPagado: (id) =>
-    set((state) => ({
-      gastos: state.gastos.map((g) =>
-        g.id === id ? { ...g, estado: 'pagado' } : g
-      ),
-    })),
+      marcarGastoPagado: (id) =>
+        set((state) => ({
+          gastos: state.gastos.map((g) =>
+            g.id === id ? { ...g, estado: 'pagado' } : g
+          ),
+        })),
 
-  eliminarGasto: (id) =>
-    set((state) => ({
-      gastos: state.gastos.filter((g) => g.id !== id),
-    })),
+      eliminarGasto: (id) =>
+        set((state) => ({
+          gastos: state.gastos.filter((g) => g.id !== id),
+        })),
 
-  agregarEvento: (evento) =>
-    set((state) => ({
-      eventos: [
-        { ...evento, id: Date.now().toString() },
-        ...state.eventos,
-      ],
-    })),
+      agregarEvento: (evento) =>
+        set((state) => ({
+          eventos: [{ ...evento, id: Date.now().toString() }, ...state.eventos],
+        })),
 
-  eliminarEvento: (id) =>
-    set((state) => ({
-      eventos: state.eventos.filter((e) => e.id !== id),
-    })),
+      eliminarEvento: (id) =>
+        set((state) => ({
+          eventos: state.eventos.filter((e) => e.id !== id),
+        })),
 
-  actualizarHogar: (hogar) =>
-    set((state) => ({ hogar: { ...state.hogar, ...hogar } })),
+      actualizarHogar: (hogar) =>
+        set((state) => ({ hogar: { ...state.hogar, ...hogar } })),
 
-  agregarIntegrante: (integrante) =>
-    set((state) => ({
-      integrantes: [
-        ...state.integrantes,
-        { ...integrante, id: Date.now().toString() },
-      ],
-    })),
-}));
+      agregarIntegrante: (integrante) =>
+        set((state) => ({
+          integrantes: [
+            ...state.integrantes,
+            { ...integrante, id: Date.now().toString() },
+          ],
+        })),
+    }),
+    {
+      name: 'casa-en-orden-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      // Solo persistimos datos, no acciones
+      partialize: (state) => ({
+        hogar: state.hogar,
+        integrantes: state.integrantes,
+        gastos: state.gastos,
+        eventos: state.eventos,
+        vencimientos: state.vencimientos,
+      }),
+    }
+  )
+);
 
 // Selectores derivados
 export const selectResumenMes = (state: AppState) => {
