@@ -76,26 +76,47 @@ export default function AgendaScreen() {
   const integrantes = useAppStore(s => s.integrantes);
   const agregarEvento = useAppStore(s => s.agregarEvento);
 
+  const hoyReal = new Date();
+  const [anio, setAnio] = useState(hoyReal.getFullYear());
+  const [mes, setMes] = useState(hoyReal.getMonth());
+  const [diaSeleccionado, setDiaSeleccionado] = useState(hoyReal.getDate());
   const [vista, setVista] = useState<Vista>('mes');
   const [modalVisible, setModalVisible] = useState(false);
-  const [diaSeleccionado, setDiaSeleccionado] = useState(18);
 
   // Form state
   const [nuevoTitulo, setNuevoTitulo] = useState('');
   const [nuevoIntegrante, setNuevoIntegrante] = useState(integrantes[0]?.id ?? '1');
   const [nuevaCategoria, setNuevaCategoria] = useState('');
 
-  const anio = 2026;
-  const mes = 4;
   const dias = generarDiasMes(anio, mes);
   const semanas: (number | null)[][] = [];
   for (let i = 0; i < dias.length; i += 7) {
     semanas.push(dias.slice(i, i + 7));
   }
 
+  const esHoyReal = (dia: number) =>
+    dia === hoyReal.getDate() &&
+    mes === hoyReal.getMonth() &&
+    anio === hoyReal.getFullYear();
+
+  // Filtrar eventos del mes/año actual
+  const mesStr = `${anio}-${String(mes + 1).padStart(2, '0')}`;
+  const eventosMes = eventos.filter(e => e.fecha.startsWith(mesStr));
   const getDia = (fecha: string) => parseInt(fecha.split('-')[2], 10);
-  const eventosDelDia = eventos.filter(e => getDia(e.fecha) === diaSeleccionado);
-  const diasConEventos = new Set(eventos.map(e => getDia(e.fecha)));
+  const eventosDelDia = eventosMes.filter(e => getDia(e.fecha) === diaSeleccionado);
+  const diasConEventos = new Set(eventosMes.map(e => getDia(e.fecha)));
+
+  function irMesAnterior() {
+    if (mes === 0) { setMes(11); setAnio(a => a - 1); }
+    else setMes(m => m - 1);
+    setDiaSeleccionado(1);
+  }
+
+  function irMesSiguiente() {
+    if (mes === 11) { setMes(0); setAnio(a => a + 1); }
+    else setMes(m => m + 1);
+    setDiaSeleccionado(1);
+  }
 
   function handleGuardarEvento() {
     if (!nuevoTitulo.trim() || !nuevaCategoria) return;
@@ -107,7 +128,7 @@ export default function AgendaScreen() {
       hora: null,
       integrante: nuevoIntegrante,
       categoria: nuevaCategoria,
-      icono: categoriaColores[nuevaCategoria] ? '📅' : '📅',
+      icono: '📅',
     });
     setNuevoTitulo('');
     setNuevaCategoria('');
@@ -120,11 +141,11 @@ export default function AgendaScreen() {
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.navBtn}>
+          <TouchableOpacity style={styles.navBtn} onPress={irMesAnterior}>
             <Ionicons name="chevron-back" size={20} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{mesesNombres[mes]} {anio}</Text>
-          <TouchableOpacity style={styles.navBtn}>
+          <TouchableOpacity style={styles.navBtn} onPress={irMesSiguiente}>
             <Ionicons name="chevron-forward" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
@@ -177,7 +198,7 @@ export default function AgendaScreen() {
               {semana.map((dia, colIdx) => {
                 if (!dia) return <View key={`e-${colIdx}`} style={styles.diaCell} />;
                 const tieneEvento = diasConEventos.has(dia);
-                const esHoy = dia === 18;
+                const esHoy = esHoyReal(dia);
                 const esSeleccionado = dia === diaSeleccionado;
 
                 return (
@@ -217,7 +238,7 @@ export default function AgendaScreen() {
         {/* Eventos del día seleccionado */}
         <View style={styles.eventosSection}>
           <Text style={styles.eventosSectionTitle}>
-            {diaSeleccionado === 18 ? 'Hoy' : `${diaSeleccionado} de ${mesesNombres[mes]}`}
+            {esHoyReal(diaSeleccionado) ? 'Hoy' : `${diaSeleccionado} de ${mesesNombres[mes]}`}
             {eventosDelDia.length === 0 ? ' — Sin eventos' : ` — ${eventosDelDia.length} evento${eventosDelDia.length > 1 ? 's' : ''}`}
           </Text>
 
@@ -246,7 +267,7 @@ export default function AgendaScreen() {
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
-              Agregar evento — {diaSeleccionado} de {mesesNombres[mes]}
+              {esHoyReal(diaSeleccionado) ? 'Hoy' : `${diaSeleccionado} de ${mesesNombres[mes]}`}
             </Text>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Ionicons name="close" size={24} color={colors.text} />
