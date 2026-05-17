@@ -82,6 +82,7 @@ export default function AgendaScreen() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(hoyReal.getDate());
   const [vista, setVista] = useState<Vista>('mes');
   const [modalVisible, setModalVisible] = useState(false);
+  const [filtroIntegrante, setFiltroIntegrante] = useState<string | null>(null);
 
   // Form state
   const [nuevoTitulo, setNuevoTitulo] = useState('');
@@ -101,7 +102,11 @@ export default function AgendaScreen() {
 
   // Filtrar eventos del mes/año actual
   const mesStr = `${anio}-${String(mes + 1).padStart(2, '0')}`;
-  const eventosMes = eventos.filter(e => e.fecha.startsWith(mesStr));
+  const eventosMes = eventos.filter(e => {
+    if (!e.fecha.startsWith(mesStr)) return false;
+    if (filtroIntegrante && e.integrante !== filtroIntegrante) return false;
+    return true;
+  });
   const getDia = (fecha: string) => parseInt(fecha.split('-')[2], 10);
   const eventosDelDia = eventosMes.filter(e => getDia(e.fecha) === diaSeleccionado);
   const diasConEventos = new Set(eventosMes.map(e => getDia(e.fecha)));
@@ -172,13 +177,27 @@ export default function AgendaScreen() {
       {/* Filtros por integrante */}
       <View style={styles.integrantesContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.integrantesRow}>
-          <TouchableOpacity style={[styles.integranteBtn, styles.integranteBtnActive]}>
-            <Text style={styles.integranteBtnText}>Todos</Text>
+          <TouchableOpacity
+            style={[styles.integranteBtn, filtroIntegrante === null && styles.integranteBtnActive]}
+            onPress={() => setFiltroIntegrante(null)}
+          >
+            <Text style={[styles.integranteBtnText, filtroIntegrante !== null && { color: colors.textSecondary }]}>
+              Todos
+            </Text>
           </TouchableOpacity>
           {integrantes.map(i => (
-            <TouchableOpacity key={i.id} style={styles.integranteBtn}>
+            <TouchableOpacity
+              key={i.id}
+              style={[styles.integranteBtn, filtroIntegrante === i.id && styles.integranteBtnActive]}
+              onPress={() => setFiltroIntegrante(filtroIntegrante === i.id ? null : i.id)}
+            >
               <Text>{i.avatar}</Text>
-              <Text style={styles.integranteBtnLabel}>{i.nombre}</Text>
+              <Text style={[
+                styles.integranteBtnLabel,
+                filtroIntegrante === i.id && { color: '#FFF', fontWeight: '600' },
+              ]}>
+                {i.nombre}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

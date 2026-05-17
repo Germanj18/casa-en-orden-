@@ -79,7 +79,8 @@ export default function InicioScreen() {
   const progresoPorc = costoEstimado > 0 ? Math.round((pagado / costoEstimado) * 100) : 0;
   const hoy = new Date();
   const diasRestantesMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate() - hoy.getDate();
-  const eventosHoy = eventos.filter(e => e.fecha === '2026-05-18');
+  const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+  const eventosHoy = eventos.filter(e => e.fecha === fechaHoy);
   const proximosVencimientos = vencimientos.filter(v => ['urgente', 'vencido', 'proximo'].includes(v.estado));
 
   return (
