@@ -63,6 +63,10 @@ type AppState = {
   agregarEvento: (evento: Omit<Evento, 'id'>) => void;
   eliminarEvento: (id: string) => void;
 
+  // Vencimientos
+  marcarVencimientoPagado: (id: string) => void;
+  agregarVencimiento: (v: Omit<Vencimiento, 'id'>) => void;
+
   // Hogar
   actualizarHogar: (hogar: Partial<Hogar>) => void;
   agregarIntegrante: (integrante: Omit<Integrante, 'id'>) => void;
@@ -102,6 +106,16 @@ export const useAppStore = create<AppState>()(
       eliminarEvento: (id) =>
         set((state) => ({
           eventos: state.eventos.filter((e) => e.id !== id),
+        })),
+
+      marcarVencimientoPagado: (id) =>
+        set((state) => ({
+          vencimientos: state.vencimientos.filter((v) => v.id !== id),
+        })),
+
+      agregarVencimiento: (v) =>
+        set((state) => ({
+          vencimientos: [{ ...v, id: Date.now().toString() }, ...state.vencimientos],
         })),
 
       actualizarHogar: (hogar) =>

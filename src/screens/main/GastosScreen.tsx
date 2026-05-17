@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Modal, TextInput,
+  StatusBar, Modal, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,17 +20,31 @@ function formatMonto(n: number) {
   return '$' + n.toLocaleString('es-AR');
 }
 
-function GastoCard({ gasto, onMarcarPagado }: { gasto: Gasto; onMarcarPagado: (id: string) => void }) {
+function GastoCard({ gasto, onMarcarPagado, onEliminar }: {
+  gasto: Gasto;
+  onMarcarPagado: (id: string) => void;
+  onEliminar: (id: string) => void;
+}) {
   const integrantes = useAppStore(s => s.integrantes);
   const icono = categoriaIconos[gasto.categoria] ?? '💰';
   const isPagado = gasto.estado === 'pagado';
   const responsable = integrantes.find(i => i.id === gasto.responsable);
 
+  function confirmarEliminar() {
+    Alert.alert(
+      'Eliminar gasto',
+      `¿Eliminar "${gasto.nombre}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar(gasto.id) },
+      ]
+    );
+  }
+
   return (
     <TouchableOpacity
       style={styles.gastoCard}
       activeOpacity={0.8}
-      onLongPress={() => !isPagado && onMarcarPagado(gasto.id)}
     >
       <View style={[styles.gastoIconoBg, { backgroundColor: isPagado ? colors.successLight : colors.warningLight }]}>
         <Text style={styles.gastoIcono}>{icono}</Text>
@@ -55,15 +69,20 @@ function GastoCard({ gasto, onMarcarPagado }: { gasto: Gasto; onMarcarPagado: (i
       </View>
 
       <View style={styles.gastoRight}>
-        <Text style={[styles.gastoMonto, { color: isPagado ? colors.text : colors.danger }]}>
-          {formatMonto(gasto.monto)}
-        </Text>
+        <View style={styles.gastoTopRight}>
+          <Text style={[styles.gastoMonto, { color: isPagado ? colors.text : colors.danger }]}>
+            {formatMonto(gasto.monto)}
+          </Text>
+          <TouchableOpacity onPress={confirmarEliminar} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
           style={[styles.estadoBadge, { backgroundColor: isPagado ? colors.successLight : '#FFF3E0' }]}
           onPress={() => !isPagado && onMarcarPagado(gasto.id)}
         >
           <Text style={[styles.estadoText, { color: isPagado ? colors.primaryDark : '#7D4200' }]}>
-            {isPagado ? 'Pagado' : 'Pendiente'}
+            {isPagado ? '✓ Pagado' : 'Pendiente'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -78,6 +97,7 @@ export default function GastosScreen() {
   const integrantes = useAppStore(s => s.integrantes);
   const agregarGasto = useAppStore(s => s.agregarGasto);
   const marcarGastoPagado = useAppStore(s => s.marcarGastoPagado);
+  const eliminarGasto = useAppStore(s => s.eliminarGasto);
   const resumen = useAppStore(useShallow(selectResumenMes));
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -177,7 +197,7 @@ export default function GastosScreen() {
           </View>
         ) : (
           gastosFiltrados.map(g => (
-            <GastoCard key={g.id} gasto={g} onMarcarPagado={marcarGastoPagado} />
+            <GastoCard key={g.id} gasto={g} onMarcarPagado={marcarGastoPagado} onEliminar={eliminarGasto} />
           ))
         )}
         <View style={{ height: spacing.xxl }} />
@@ -338,7 +358,9 @@ const styles = StyleSheet.create({
   gastoCategoria: { ...typography.caption, color: colors.textSecondary },
   gastoResponsable: { ...typography.caption, color: colors.textSecondary },
   gastoRight: { alignItems: 'flex-end', gap: 4 },
+  gastoTopRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   gastoMonto: { fontSize: 15, fontWeight: '700' },
+  deleteBtn: { padding: 2 },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full },
   estadoText: { fontSize: 10, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingVertical: 60, gap: spacing.md },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Modal, TextInput,
+  StatusBar, Modal, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,8 +40,20 @@ function generarDiasMes(anio: number, mes: number) {
 
 function EventoCard({ evento }: { evento: ReturnType<typeof useAppStore.getState>['eventos'][0] }) {
   const integrantes = useAppStore(s => s.integrantes);
+  const eliminarEvento = useAppStore(s => s.eliminarEvento);
   const integrante = integrantes.find(i => i.id === evento.integrante);
   const bg = categoriaColores[evento.categoria] ?? '#FAFAFA';
+
+  function confirmarEliminar() {
+    Alert.alert(
+      'Eliminar evento',
+      `¿Eliminar "${evento.titulo}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => eliminarEvento(evento.id) },
+      ]
+    );
+  }
 
   return (
     <TouchableOpacity style={[styles.eventoCard, { backgroundColor: bg }]} activeOpacity={0.8}>
@@ -66,7 +78,9 @@ function EventoCard({ evento }: { evento: ReturnType<typeof useAppStore.getState
           </View>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      <TouchableOpacity onPress={confirmarEliminar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }

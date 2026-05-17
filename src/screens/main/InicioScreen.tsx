@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, StatusBar,
+  TouchableOpacity, StatusBar, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { colors, spacing, radius, typography, shadows } from '../../theme';
 import { mockAlertas } from '../../data/mockData';
 import { useShallow } from 'zustand/react/shallow';
-import { useAppStore, selectResumenMes } from '../../store';
+import { useAppStore, selectResumenMes, type Vencimiento } from '../../store';
 import { MainTabParams } from '../../navigation';
 
 function formatMonto(n: number) {
@@ -33,7 +33,7 @@ function AlertaBadge({ alerta }: { alerta: typeof mockAlertas[0] }) {
   );
 }
 
-function VencimientoRow({ v }: { v: typeof mockVencimientos[0] }) {
+function VencimientoRow({ v, onPagar }: { v: Vencimiento; onPagar: (id: string) => void }) {
   const colores: Record<string, string> = {
     urgente: colors.danger,
     vencido: colors.danger,
@@ -48,13 +48,24 @@ function VencimientoRow({ v }: { v: typeof mockVencimientos[0] }) {
   };
 
   return (
-    <View style={styles.vencimientoRow}>
+    <TouchableOpacity
+      style={styles.vencimientoRow}
+      activeOpacity={0.7}
+      onPress={() => Alert.alert(
+        v.nombre,
+        '¿Marcar como pagado? Se quitará de los vencimientos pendientes.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Marcar pagado', onPress: () => onPagar(v.id) },
+        ]
+      )}
+    >
       <View style={[styles.vencimientoDot, { backgroundColor: colores[v.estado] }]} />
       <Text style={styles.vencimientoNombre}>{v.nombre}</Text>
       <Text style={[styles.vencimientoFecha, { color: colores[v.estado] }]}>
         {labels[v.estado]}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -75,6 +86,7 @@ export default function InicioScreen() {
   const hogar = useAppStore(s => s.hogar);
   const vencimientos = useAppStore(s => s.vencimientos);
   const eventos = useAppStore(s => s.eventos);
+  const marcarVencimientoPagado = useAppStore(s => s.marcarVencimientoPagado);
   const { costoEstimado, pagado, pendiente, libreEstimado } = useAppStore(useShallow(selectResumenMes));
   const progresoPorc = costoEstimado > 0 ? Math.round((pagado / costoEstimado) * 100) : 0;
   const hoy = new Date();
@@ -166,7 +178,7 @@ export default function InicioScreen() {
           <View style={styles.card}>
             {proximosVencimientos.map((v, i) => (
               <React.Fragment key={v.id}>
-                <VencimientoRow v={v} />
+                <VencimientoRow v={v} onPagar={marcarVencimientoPagado} />
                 {i < proximosVencimientos.length - 1 && <View style={styles.divider} />}
               </React.Fragment>
             ))}
